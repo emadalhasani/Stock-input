@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدخال المنتجات الاحترافي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- مكتبة SheetJS للتعامل مع ملفات الإكسل -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 mt-10">
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-blue-600 px-6 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-white">نظام إضافة المنتجات والفئات</h1>
+                <span class="bg-blue-800 text-white px-3 py-1 rounded-full text-sm">لوحة الموظف</span>
+            </div>
+
+            <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <div class="lg:col-span-1 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <h2 class="text-xl font-bold mb-4 border-b pb-2">إضافة منتج جديد</h2>
+                    
+                    <form id="productForm" class="space-y-4">
+                        
+                        <!-- حاوية القوائم المنسدلة الديناميكية -->
+                        <div id="categoryContainer" class="space-y-3">
+                            <label class="block text-sm font-semibold text-gray-700">تحديد الفئة:</label>
+                            <!-- سيتم حقن القوائم هنا بواسطة جافاسكربت -->
+                        </div>
+
+                        <hr class="my-4 border-gray-300">
+
+                        <!-- بيانات المنتج -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">رمز الصنف (EAN)</label>
+                            <input type="text" id="productEAN" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="مثال: 6281234567890">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">اسم المنتج</label>
+                            <input type="text" id="productName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="مثال: ايفون 15 برو ماكس">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">السعر (ريال)</label>
+                                <input type="number" id="productPrice" required min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">الكمية</label>
+                                <input type="number" id="productQty" required min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="1">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mt-4 shadow-md">
+                            إضافة للقائمة
+                        </button>
+                    </form>
+                </div>
+
+                <div class="lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">المنتجات المدخلة حديثاً</h2>
+                        <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            تصدير إلى Excel
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl shadow-sm">
+                        <table class="w-full text-right">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-4 py-3 text-sm font-bold text-gray-600">رمز EAN</th>
+                                    <th class="px-4 py-3 text-sm font-bold text-gray-600">اسم المنتج</th>
+                                    <th class="px-4 py-3 text-sm font-bold text-gray-600">المسار (الفئة)</th>
+                                    <th class="px-4 py-3 text-sm font-bold text-gray-600">السعر</th>
+                                    <th class="px-4 py-3 text-sm font-bold text-gray-600">الكمية</th>
+                                    <th class="px-4 py-3 text-sm font-bold text-gray-600">إجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody" class="divide-y divide-gray-100">
+                                <!-- سيتم إضافة المنتجات هنا -->
+                                <tr id="emptyRow">
+                                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // النص الخاص بالفئات كما أدخلته
+        const rawCategoriesText = `
+الخدمات
+المنتجات
+المنتجات / أجهزة الألعاب
+المنتجات / أجهزة الألعاب / أجهزة Xbox
+المنتجات / أجهزة الألعاب / أجهزة الألعاب الأخرى
+المنتجات / أجهزة الألعاب / أجهزة بلايستيشن (SONY)
+المنتجات / أجهزة الألعاب / أجهزة بلايستيشن (SONY) / النسخة الرقمية
+المنتجات / أجهزة الألعاب / أجهزة بلايستيشن (SONY) / نسخة الأقراص
+المنتجات / أجهزة الألعاب / أجهزة نينتندو (Nintendo)
+المنتجات / أجهزة الألعاب / ملحقات أجهزة الألعاب
+المنتجات / أجهزة الألعاب / ملحقات أجهزة الألعاب / أجهزة التحكم (Controllers)
+المنتجات / أجهزة الألعاب / ملحقات أجهزة الألعاب / أشرطة وألعاب
+المنتجات / أجهزة الألعاب / ملحقات أجهزة الألعاب / ملحقات أجهزة الألعاب الاخرى
+المنتجات / أجهزة الشبكة
+المنتجات / أجهزة الشبكة / الروترات والمودمات
+المنتجات / أجهزة الشبكة / الروترات والمودمات / راوتر لاسلكي (Wireless Router)
+المنتجات / أجهزة الشبكة / الروترات والمودمات / راوتر متنقل (MiFi / Portable Router)
+المنتجات / أجهزة الشبكة / الروترات والمودمات / راوتر منزلي 5G/4G (Home CPE)
+المنتجات / أجهزة الشبكة / مقويات الإشارة (Network Extenders)
+المنتجات / أجهزة الشبكة / مقويات الإشارة (Network Extenders) / مثوي إشارة لا سلكي
+المنتجات / أجهزة الشبكة / مقويات الإشارة (Network Extenders) / مقوي إشارة سلكي
+المنتجات / أجهزة الصوت والسماعات
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن سلكية
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي / سلسلة سماعات FreeArc
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي / سلسلة سماعات FreeBuds
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي / سلسلة سماعات FreeBuds Pro
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي / سلسلة سماعات FreeBuds SE
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي / سلسلة سماعات FreeBuds i
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات  اذن لا سلكية هواوي / سلسلة سماعات FreeClip
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية أخرى
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية ابل
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية ابل / سلسلة سماعات AirPods
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية ابل / سلسلة سماعات AirPods Pro
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية سامسونج
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية سامسونج / سلسلة سماعات Galaxy Buds
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية سامسونج / سلسلة سماعات Galaxy Buds FE
+المنتجات / أجهزة الصوت والسماعات / سماعات اذن / سماعات اذن لا سلكية / سماعات اذن لا سلكية سامسونج / سلسلة سماعات Galaxy Buds Pro
+المنتجات / أجهزة الصوت والسماعات / سماعات الرأس
+المنتجات / أجهزة الصوت والسماعات / سماعات الرأس / سماعات رأس بلوتوث مع سلك
+المنتجات / أجهزة الصوت والسماعات / سماعات الرأس / سماعات راس سلكية
+المنتجات / أجهزة الصوت والسماعات / مكبرات الصوت وملحقاتها
+المنتجات / أجهزة الصوت والسماعات / مكبرات الصوت وملحقاتها / مكبرات الصوت الأخرى
+المنتجات / أجهزة الصوت والسماعات / مكبرات الصوت وملحقاتها / مكبرات الصوت المحمولة
+المنتجات / أجهزة الصوت والسماعات / مكبرات الصوت وملحقاتها / مكبرات الصوت المنزلية
+المنتجات / أجهزة الصوت والسماعات / مكبرات الصوت وملحقاتها / ملحقات مكبرات الصوت
+المنتجات / أجهزة الكمبيوتر
+المنتجات / أجهزة الكمبيوتر / كمبيوتر محمول
+المنتجات / أجهزة الكمبيوتر / كمبيوتر مكتبي
+المنتجات / أجهزة المنزل الذكية
+المنتجات / أجهزة المنزل الذكية / أجهزة الأمان المنزلية
+المنتجات / أجهزة المنزل الذكية / أجهزة المنزل الذكية الأخرى وملحقاتها
+المنتجات / أجهزة المنزل الذكية / الإضاءات الذكية
+المنتجات / أجهزة المنزل الذكية / المكانس الذكية
+المنتجات / أجهزة مراقبة الصحة واللياقة وملحقاتها
+المنتجات / أجهزة مراقبة الصحة واللياقة وملحقاتها / أسوار يد ذكية
+المنتجات / أجهزة مراقبة الصحة واللياقة وملحقاتها / الخواتم الذكية
+المنتجات / أجهزة مراقبة الصحة واللياقة وملحقاتها / ملحقات أجهزة مراقبة الصحة واللياقة الأخرى
+المنتجات / أجهزة مراقبة الصحة واللياقة وملحقاتها / ميزان ذكي
+المنتجات / الايبادات والتابلتات
+المنتجات / الايبادات والتابلتات / الايبادات الأخرى
+المنتجات / الايبادات والتابلتات / ايبادات ابل
+المنتجات / الايبادات والتابلتات / ايبادات ابل / سلسلة iPad
+المنتجات / الايبادات والتابلتات / ايبادات ابل / سلسلة iPad Air
+المنتجات / الايبادات والتابلتات / ايبادات ابل / سلسلة iPad Pro
+المنتجات / الايبادات والتابلتات / ايبادات ابل / سلسلة iPad mini
+المنتجات / الايبادات والتابلتات / تابلتات جي تاب
+المنتجات / الايبادات والتابلتات / تابلتات سامسونج
+المنتجات / الايبادات والتابلتات / تابلتات سامسونج / سلسلة Galaxy Tab A
+المنتجات / الايبادات والتابلتات / تابلتات سامسونج / سلسلة Galaxy Tab S
+المنتجات / الايبادات والتابلتات / تابلتات شاومي
+المنتجات / الايبادات والتابلتات / تابلتات لينوفو
+المنتجات / الايبادات والتابلتات / تابلتات هواوي
+المنتجات / الايبادات والتابلتات / تابلتات هواوي / سلسلة HUAWEI MatePad
+المنتجات / الايبادات والتابلتات / تابلتات هواوي / سلسلة HUAWEI MatePad Mini
+المنتجات / الايبادات والتابلتات / تابلتات هواوي / سلسلة HUAWEI MatePad Pro
+المنتجات / الايبادات والتابلتات / تابلتات هواوي / سلسلة HUAWEI MatePad SE
+المنتجات / الايبادات والتابلتات / تابلتات هونر
+المنتجات / الايبادات والتابلتات / تابلتات هونر / سلسلة Honor Pad
+المنتجات / الايبادات والتابلتات / تابلتات هونر / سلسلة Honor Pad Magic
+المنتجات / الايبادات والتابلتات / تابلتات هونر / سلسلة Honor Pad X
+المنتجات / الحمايات
+المنتجات / الحمايات / حمايات الجوالات
+المنتجات / الحمايات / حمايات الجوالات / استكرات حماية شاشة زجاجية
+المنتجات / الحمايات / حمايات الجوالات / استكرات حماية شاشة زجاجية / استكرات حماية شاشة زجاجية خصوصية
+المنتجات / الحمايات / حمايات الجوالات / استكرات حماية شاشة زجاجية / استكرات حماية شاشة زجاجية شفاف
+المنتجات / الحمايات / حمايات الجوالات / استكرات حماية شاشة نانو
+المنتجات / الحمايات / حمايات الجوالات / استكرات حماية شاشة نانو / استكرات حماية شاشة نانو خصوصية
+المنتجات / الحمايات / حمايات الجوالات / استكرات حماية شاشة نانو / استكرات حماية شاشة نانو شفاف
+المنتجات / الحمايات / حمايات الجوالات / بكجات الحماية المتكاملة
+المنتجات / الحمايات / حمايات الجوالات / بكجات الحماية المتكاملة / بكجات حماية بدون ضمان خصوصية
+المنتجات / الحمايات / حمايات الجوالات / بكجات الحماية المتكاملة / بكجات حماية بدون ضمان شفاف
+المنتجات / الحمايات / حمايات الجوالات / بكجات الحماية المتكاملة / بكجات حماية ضمان خصوصية
+المنتجات / الحمايات / حمايات الجوالات / بكجات الحماية المتكاملة / بكجات حماية ضمان شفاف
+المنتجات / الحمايات / حمايات الجوالات / حماية جوال سيكيورتيك A4
+المنتجات / الحمايات / حمايات الجوالات / حماية عدسات الكاميرا
+المنتجات / الحمايات / حمايات الجوالات / حماية عدسات الكاميرا / حماية الكاميرا عدسات شفافة
+المنتجات / الحمايات / حمايات الجوالات / حماية عدسات الكاميرا / حماية الكاميرا عدسات ملونة
+المنتجات / الحمايات / حمايات الجوالات / حماية عدسات الكاميرا / حماية الكاميرا كامل
+المنتجات / الحمايات / حمايات شاشات التابلت
+المنتجات / الحمايات / حمايات شاشات التابلت / استكرات حماية شاشة زجاجية خصوصية
+المنتجات / الحمايات / حمايات شاشات التابلت / استكرات حماية شاشة زجاجية شفاف
+المنتجات / الحمايات / حمايات شاشات التابلت / بكجات حماية تابلت متكاملة
+المنتجات / الحمايات / حمايات شاشات الكمبيوتر
+المنتجات / الحمايات / حمايات شاشات الكمبيوتر / حماية سيكيورتيك A3
+المنتجات / الحمايات / حماية شاشات الساعات
+المنتجات / الساعات الذكية
+المنتجات / الساعات الذكية / ساعات ابل
+المنتجات / الساعات الذكية / ساعات ابل / سلسلة Apple Watch
+المنتجات / الساعات الذكية / ساعات ابل / سلسلة Apple Watch SE
+المنتجات / الساعات الذكية / ساعات ابل / سلسلة Apple Watch Ultra
+المنتجات / الساعات الذكية / ساعات ذكية أخرى
+المنتجات / الساعات الذكية / ساعات سامسونج
+المنتجات / الساعات الذكية / ساعات شاومي
+المنتجات / الساعات الذكية / ساعات هواوي
+المنتجات / الساعات الذكية / ساعات هواوي / سلسلة HUAWEI Band
+المنتجات / الساعات الذكية / ساعات هواوي / سلسلة HUAWEI WATCH
+المنتجات / الساعات الذكية / ساعات هواوي / سلسلة HUAWEI WATCH FIT
+المنتجات / الساعات الذكية / ساعات هواوي / سلسلة HUAWEI WATCH GT
+المنتجات / الساعات الذكية / ساعات هونر
+المنتجات / الشاشات وأجهزة العرض وملحقاتها
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / أجهزة العرض (البروجكتر)
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / أجهزة العرض (البروجكتر) / بروجكترات للأعمال
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / أجهزة العرض (البروجكتر) / بروجكترات منزلية
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / الشاشات الذكية
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / الشاشات الذكية / شاشات كمبيوتر/ العاب
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / الشاشات الذكية / شاشات منزلية
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / الشاشات الذكية / شاشات منزلية / شاشات منزلية LG
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / الشاشات الذكية / شاشات منزلية / شاشات منزلية SAMSUNG
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / ملحقات الشاشات وأجهزة العرض
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / ملحقات الشاشات وأجهزة العرض / حوامل جدارية
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / ملحقات الشاشات وأجهزة العرض / كابلات HDMI
+المنتجات / الشاشات وأجهزة العرض وملحقاتها / ملحقات الشاشات وأجهزة العرض / مشغلات الوسائط الذكية
+المنتجات / الطابعات ومستلزماتها
+المنتجات / الطابعات ومستلزماتها / الطابعات
+المنتجات / الطابعات ومستلزماتها / الماسحات الضوئية
+المنتجات / الطابعات ومستلزماتها / مستلزمات الطابعات الأخرى
+المنتجات / الهواتف الذكية
+المنتجات / الهواتف الذكية / هاتف ذكي ابل
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone 11
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone 13
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone 14
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone 15
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone 16
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone 17
+المنتجات / الهواتف الذكية / هاتف ذكي ابل / سلسلة iPhone SE
+المنتجات / الهواتف الذكية / هاتف ذكي انفينكس
+المنتجات / الهواتف الذكية / هاتف ذكي انفينكس / سلسلة Infinix GT
+المنتجات / الهواتف الذكية / هاتف ذكي انفينكس / سلسلة Infinix Hot
+المنتجات / الهواتف الذكية / هاتف ذكي انفينكس / سلسلة Infinix Note
+المنتجات / الهواتف الذكية / هاتف ذكي انفينكس / سلسلة Infinix Smart
+المنتجات / الهواتف الذكية / هاتف ذكي اوبو
+المنتجات / الهواتف الذكية / هاتف ذكي اوكتيل
+المنتجات / الهواتف الذكية / هاتف ذكي ايتل
+المنتجات / الهواتف الذكية / هاتف ذكي تكنو
+المنتجات / الهواتف الذكية / هاتف ذكي ريد ماجك
+المنتجات / الهواتف الذكية / هاتف ذكي ريلمي
+المنتجات / الهواتف الذكية / هاتف ذكي سامسونج
+المنتجات / الهواتف الذكية / هاتف ذكي سامسونج / سلسلة Galaxy A
+المنتجات / الهواتف الذكية / هاتف ذكي سامسونج / سلسلة Galaxy S
+المنتجات / الهواتف الذكية / هاتف ذكي سامسونج / سلسلة Galaxy Z
+المنتجات / الهواتف الذكية / هاتف ذكي شاومي
+المنتجات / الهواتف الذكية / هاتف ذكي شاومي / سلسلة Redmi
+المنتجات / الهواتف الذكية / هاتف ذكي شاومي / سلسلة Redmi A
+المنتجات / الهواتف الذكية / هاتف ذكي شاومي / سلسلة Redmi Note
+المنتجات / الهواتف الذكية / هاتف ذكي شاومي / سلسلة Xiaomi T
+المنتجات / الهواتف الذكية / هاتف ذكي فيفو
+المنتجات / الهواتف الذكية / هاتف ذكي موتورلا
+المنتجات / الهواتف الذكية / هاتف ذكي نوكيا
+المنتجات / الهواتف الذكية / هاتف ذكي هواوي
+المنتجات / الهواتف الذكية / هاتف ذكي هواوي / سلسلة HUAWEI Mate
+المنتجات / الهواتف الذكية / هاتف ذكي هواوي / سلسلة HUAWEI Nova
+المنتجات / الهواتف الذكية / هاتف ذكي هواوي / سلسلة HUAWEI Pura
+المنتجات / الهواتف الذكية / هاتف ذكي هونر
+المنتجات / الهواتف الذكية / هاتف ذكي هونر / Honor  سلسلة
+المنتجات / الهواتف الذكية / هاتف ذكي هونر / سلسلة Honor Magic
+المنتجات / الهواتف الذكية / هاتف ذكي هونر / سلسلة Honor X
+المنتجات / كاميرات التصوير وملحقاتها
+المنتجات / كاميرات التصوير وملحقاتها / كاميرات التصوير
+المنتجات / كاميرات التصوير وملحقاتها / كاميرات التصوير / كاميرات التصوير الاحترافية
+المنتجات / كاميرات التصوير وملحقاتها / كاميرات التصوير / كاميرات التصوير الفورية
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / أدوات تنظيف الكاميرات
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / الاضاءات وفلاشات التصوير
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / بطائق التخزين
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / بطاريات وشواحن الكاميرات
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / حقائب وجرابات الكاميرات
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / حوامل الكاميرات والتثبت
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / عدسات الكاميرات وفلاتر العدسات
+المنتجات / كاميرات التصوير وملحقاتها / ملحقات الكاميرات والتصوير / ميكروفونات الكاميرات والتصوير
+المنتجات / مستلزمات السيارات وادواتها
+المنتجات / مستلزمات السيارات وادواتها / أجهزة الاشتراك (Jump Starter)
+المنتجات / مستلزمات السيارات وادواتها / أجهزة التتبع GPS
+المنتجات / مستلزمات السيارات وادواتها / ثلاجة سيارة صغيرة
+المنتجات / مستلزمات السيارات وادواتها / كار بلاي
+المنتجات / مستلزمات السيارات وادواتها / كاميرات السيارة (داش كام)
+المنتجات / مستلزمات السيارات وادواتها / محول طاقة السيارة
+المنتجات / مستلزمات السيارات وادواتها / مكانس كهربائية محمولة
+المنتجات / مستلزمات السيارات وادواتها / ملحقات السيارة الأخرى
+المنتجات / مستلزمات السيارات وادواتها / منفاخ إطارات كهربائي
+المنتجات / ملحقات أجهزة الكمبيوتر
+المنتجات / ملحقات أجهزة الكمبيوتر / أجهزة التخزين
+المنتجات / ملحقات أجهزة الكمبيوتر / اداوت/لوازم التنظيف
+المنتجات / ملحقات أجهزة الكمبيوتر / شاشات العاب
+المنتجات / ملحقات أجهزة الكمبيوتر / شنط وحافظات وملحقات أخرى
+المنتجات / ملحقات أجهزة الكمبيوتر / فأرة سلكية ولا سلكية
+المنتجات / ملحقات أجهزة الكمبيوتر / كاميرا ويب
+المنتجات / ملحقات أجهزة الكمبيوتر / لوحة مفاتيح سلكية ولا سلكية
+المنتجات / ملحقات أجهزة الكمبيوتر / مكيرفونات كمبيوتر
+المنتجات / ملحقات التابلتات والايبادات
+المنتجات / ملحقات التابلتات والايبادات / أقلام ذكية
+المنتجات / ملحقات التابلتات والايبادات / استاندات ومسكات التابلتات
+المنتجات / ملحقات التابلتات والايبادات / الجرابات والاغطية
+المنتجات / ملحقات التابلتات والايبادات / كيبوردات/ كيبورد مع جراب
+المنتجات / ملحقات التابلتات والايبادات / ملحقات التابلت الاخرى
+المنتجات / ملحقات الهواتف الذكية
+المنتجات / ملحقات الهواتف الذكية / أدوات التصوير للجوال
+المنتجات / ملحقات الهواتف الذكية / استاندات ومسكات الجوال
+المنتجات / ملحقات الهواتف الذكية / استاندات ومسكات الجوال / استاندات مكتبية
+المنتجات / ملحقات الهواتف الذكية / استاندات ومسكات الجوال / ستاندات سيارة
+المنتجات / ملحقات الهواتف الذكية / استاندات ومسكات الجوال / مسكات واستاندات أخرى
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية أجهزة أخرى
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية أجهزة أخرى / جرابات  واغطية عادي
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية أجهزة أخرى / جرابات واغطية ماج سيف
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية ايفون
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية ايفون / جرابات  واغطية عادي
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية ايفون / جرابات واغطية ماج سيف
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية سامسونج
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية سامسونج / جرابات  واغطية عادي
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية سامسونج / جرابات واغطية ماج سيف
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية هونر
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية هونر / جرابات  واغطية عادي
+المنتجات / ملحقات الهواتف الذكية / الجرابات والاغطية / جرابات واغطية هونر / جرابات واغطية ماج سيف
+المنتجات / ملحقات الهواتف الذكية / الشواحن وملحقاتها
+المنتجات / ملحقات الهواتف الذكية / الشواحن وملحقاتها / شواحن أخرى
+المنتجات / ملحقات الهواتف الذكية / الشواحن وملحقاتها / شواحن جدارية
+المنتجات / ملحقات الهواتف الذكية / الشواحن وملحقاتها / شواحن سيارة
+المنتجات / ملحقات الهواتف الذكية / الكيابل
+المنتجات / ملحقات الهواتف الذكية / الكيابل / كابلات USB-A إلى Lightning
+المنتجات / ملحقات الهواتف الذكية / الكيابل / كابلات USB-A إلى Micro USB
+المنتجات / ملحقات الهواتف الذكية / الكيابل / كابلات USB-A إلى Type-C
+المنتجات / ملحقات الهواتف الذكية / الكيابل / كابلات USB-C إلى Lightning
+المنتجات / ملحقات الهواتف الذكية / الكيابل / كابلات USB-C إلى Type-C
+المنتجات / ملحقات الهواتف الذكية / باور بانك | شاحن متنقل
+المنتجات / ملحقات الهواتف الذكية / باور بانك | شاحن متنقل / باور بانك | شاحن متنقل عادي
+المنتجات / ملحقات الهواتف الذكية / باور بانك | شاحن متنقل / باور بانك | شاحن متنقل وايرلس
+المنتجات / ملحقات الهواتف الذكية / بكجات ملحقات الهواتف الذكية
+المنتجات / ملحقات الهواتف الذكية / محولات الصوت
+المنتجات / ملحقات الهواتف الذكية / محولات الصوت / محولات Lightning إلى AUX
+المنتجات / ملحقات الهواتف الذكية / محولات الصوت / محولات USB-C إلى AUX
+المنتجات / ملحقات الهواتف الذكية / محولات الصوت / محولات صوت وشحن Lightning
+المنتجات / ملحقات الهواتف الذكية / محولات الصوت / محولات صوت وشحن USB-C
+النفقات | المصروفات
+`;
+
+        // تحويل النص إلى شجرة كائنات (Object Tree) لسهولة بناء القوائم المنسدلة
+        function buildCategoryTree(text) {
+            const tree = {};
+            const lines = text.trim().split('\n');
+            
+            lines.forEach(line => {
+                // تقسيم السطر وإزالة الفراغات الزائدة
+                const parts = line.split('/').map(part => part.trim()).filter(part => part !== '');
+                
+                let currentNode = tree;
+                // نبدأ من 0 لندعم الفئات الرئيسية مثل "الخدمات" أو "النفقات"
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    if (!currentNode[part]) {
+                        currentNode[part] = {};
+                    }
+                    currentNode = currentNode[part];
+                }
+            });
+            return tree;
+        }
+
+        const categoryTree = buildCategoryTree(rawCategoriesText);
+        let productsList = []; // مصفوفة لحفظ المنتجات المضافة
+
+        // --- إعدادات وتفعيل قاعدة البيانات السحابية Firebase (Firestore) للحفظ الدائم ---
+        let db, auth, currentUserId;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-system-app';
+
+        async function initFirebase() {
+            try {
+                // نستخدم إعدادات Firebase المقدمة من البيئة السحابية
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                if (!firebaseConfig) {
+                    console.warn("تنبيه: قاعدة البيانات السحابية غير مفعلة، سيتم الحفظ محلياً فقط.");
+                    return;
+                }
+
+                const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
+                const { getAuth, signInAnonymously, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+                const { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // تسجيل الدخول لحماية البيانات
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                currentUserId = auth.currentUser.uid;
+                
+                // جلب البيانات المحفوظة مسبقاً وتحديث الجدول مباشرة (Live Sync)
+                const productsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'products');
+                onSnapshot(productsRef, (snapshot) => {
+                    productsList = [];
+                    snapshot.forEach((doc) => {
+                        productsList.push({ dbId: doc.id, ...doc.data() });
+                    });
+                    // ترتيب تصاعدي حسب وقت الإضافة
+                    productsList.sort((a, b) => a.createdAt - b.createdAt);
+                    updateTable();
+                }, (error) => {
+                    console.error("خطأ في جلب البيانات:", error);
+                });
+
+            } catch (error) {
+                console.error("خطأ في تهيئة قاعدة البيانات:", error);
+            }
+        }
+        
+        // تشغيل التهيئة
+        initFirebase();
+        // ----------------------------------------------------------------------------------
+
+        const container = document.getElementById('categoryContainer');
+        let selectedPath = [];
+
+        function renderSelect(dataNode, level) {
+            // إزالة أي قوائم منسدلة بعد المستوى الحالي لتحديثها
+            const allSelects = container.querySelectorAll('select');
+            allSelects.forEach(select => {
+                if (parseInt(select.dataset.level) >= level) {
+                    select.remove();
+                }
+            });
+
+            // تحديث مسار الفئة المختارة
+            selectedPath = selectedPath.slice(0, level);
+
+            const keys = Object.keys(dataNode);
+            if (keys.length === 0) return; // وصلنا للفرع الأخير
+
+            // إنشاء عنصر Select جديد
+            const selectEl = document.createElement('select');
+            selectEl.dataset.level = level;
+            selectEl.className = "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white";
+            selectEl.required = true;
+
+            // الخيار الافتراضي
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = `اختر الفئة ${level === 0 ? 'الرئيسية' : 'الفرعية'}...`;
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            selectEl.appendChild(defaultOption);
+
+            // إضافة الخيارات
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                selectEl.appendChild(option);
+            });
+
+            // إضافة حدث التغيير
+            selectEl.addEventListener('change', (e) => {
+                const selectedValue = e.target.value;
+                selectedPath[level] = selectedValue;
+                renderSelect(dataNode[selectedValue], level + 1);
+            });
+
+            container.appendChild(selectEl);
+        }
+
+        // تهيئة القائمة الأولى عند تحميل الصفحة
+        renderSelect(categoryTree, 0);
+
+        document.getElementById('productForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // التحقق من اختيار الفئات
+            const selects = container.querySelectorAll('select');
+            const lastSelect = selects[selects.length - 1];
+            
+            if(selectedPath.length === 0 || !lastSelect.value) {
+                alert("الرجاء إكمال اختيار الفئات حتى النهاية.");
+                return;
+            }
+
+            // جمع البيانات
+            const ean = document.getElementById('productEAN').value;
+            const name = document.getElementById('productName').value;
+            const price = parseFloat(document.getElementById('productPrice').value).toFixed(2);
+            const qty = document.getElementById('productQty').value;
+            
+            // تم تعديل هذا الجزء ليأخذ المسار الفعلي من الشجرة بدلاً من فرض كلمة "المنتجات"
+            const fullPath = selectedPath.join(' / ');
+
+            const product = {
+                ean: ean,
+                name: name,
+                category: fullPath,
+                price: price,
+                qty: qty,
+                createdAt: Date.now()
+            };
+
+            // إذا كانت قاعدة البيانات مفعلة، احفظ فيها، وإلا احفظ محلياً فقط
+            if (db && currentUserId) {
+                try {
+                    const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                    const productsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'products');
+                    
+                    // تغيير نص الزر للإشارة للتحميل
+                    const submitBtn = e.target.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.textContent = "جاري الحفظ...";
+                    submitBtn.disabled = true;
+                    
+                    await addDoc(productsRef, product);
+                    
+                    submitBtn.textContent = originalText;
+                    submitBtn.disabled = false;
+                } catch (error) {
+                    console.error("خطأ في حفظ المنتج:", error);
+                    alert("حدث خطأ أثناء حفظ المنتج في السحابة.");
+                }
+            } else {
+                 product.id = Date.now();
+                 productsList.push(product);
+                 updateTable();
+            }
+
+            // إعادة تفريغ الحقول باستثناء الفئة
+            document.getElementById('productEAN').value = '';
+            document.getElementById('productName').value = '';
+            document.getElementById('productPrice').value = '';
+            document.getElementById('productQty').value = '';
+            document.getElementById('productEAN').focus();
+        });
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            const emptyRow = document.getElementById('emptyRow');
+            const exportBtn = document.getElementById('exportBtn');
+            
+            if (productsList.length > 0) {
+                if(emptyRow) emptyRow.style.display = 'none';
+                exportBtn.disabled = false;
+            } else {
+                if(emptyRow) emptyRow.style.display = 'table-row';
+                exportBtn.disabled = true;
+            }
+
+            // مسح الصفوف القديمة وإعادة البناء (نستثني صف الرسالة الفارغة)
+            Array.from(tbody.children).forEach(child => {
+                if(child.id !== 'emptyRow') {
+                    child.remove();
+                }
+            });
+
+            productsList.forEach(prod => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition";
+                // نستخدم dbId إذا كان متوفراً (من قاعدة البيانات) أو id العادي
+                const deleteId = prod.dbId ? `'${prod.dbId}'` : prod.id;
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-mono text-gray-700">${prod.ean || '-'}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">${prod.name}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500 truncate max-w-xs" title="${prod.category}">${prod.category}</td>
+                    <td class="px-4 py-3 text-green-600 font-bold">${prod.price}</td>
+                    <td class="px-4 py-3">${prod.qty}</td>
+                    <td class="px-4 py-3">
+                        <button onclick="deleteProduct(${deleteId})" class="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded">حذف</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.deleteProduct = async function(id) {
+            if (db && currentUserId && typeof id === 'string') {
+                try {
+                    const { doc, deleteDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'products', id);
+                    await deleteDoc(docRef);
+                    // الجدول سيتحدث تلقائياً بسبب onSnapshot
+                } catch (error) {
+                    console.error("خطأ في حذف المنتج:", error);
+                }
+            } else {
+                // الحذف المحلي إذا لم تكن قاعدة البيانات متصلة
+                productsList = productsList.filter(p => p.id !== id);
+                updateTable();
+            }
+        }
+
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            if (productsList.length === 0) return;
+
+            // تنسيق البيانات لتناسب ملف الإكسل
+            const excelData = productsList.map(prod => ({
+                "رمز الصنف (EAN)": prod.ean || "",
+                "اسم المنتج": prod.name,
+                "الفئة (المسار الكامل)": prod.category,
+                "السعر (ريال)": Number(prod.price),
+                "الكمية": Number(prod.qty)
+            }));
+
+            // إنشاء ورقة العمل وملف الإكسل
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            
+            // ضبط اتجاه الورقة من اليمين لليسار (RTL)
+            if(!worksheet['!views']) worksheet['!views'] = [];
+            worksheet['!views'].push({ rightToLeft: true });
+
+            // ضبط عرض الأعمدة التقريبي
+            worksheet['!cols'] = [
+                { wch: 15 }, // رمز EAN
+                { wch: 30 }, // اسم المنتج
+                { wch: 60 }, // المسار
+                { wch: 15 }, // السعر
+                { wch: 10 }  // الكمية
+            ];
+
+            XLSX.utils.book_append_sheet(workbook, worksheet, "المنتجات");
+            
+            // تحديد اسم الملف وتاريخه
+            const dateStr = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(workbook, `المنتجات_المدخلة_${dateStr}.xlsx`);
+        });
+
+    </script>
+</body>
+</html>
